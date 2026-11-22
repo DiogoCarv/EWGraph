@@ -32,7 +32,7 @@ O sistema realiza a leitura de grafos com pesos nas arestas a partir de arquivos
 
 ### 📂 Arquivos de Teste Inclusos
 
-* **`redes_social.txt`**: Grafo ponderado de 12 vértices e 16 arestas simulando uma rede de interações entre usuários (onde pesos menores representam maior frequência de comunicação)[cite: 30], dividido em três comunidades conectadas por pontes (`3 -- 4` e `6 -- 8`)[cite: 30], utilizado para validar pontos de articulação, graus de separação até o nó `0` e detecção de 3 comunidades.
+* **`redes_social.txt`**: Grafo ponderado de 12 vértices e 16 arestas simulando uma rede de interações entre usuários (onde pesos menores representam maior frequência de comunicação), dividido em três comunidades conectadas por pontes (`3 -- 4` e `6 -- 8`), utilizado para validar pontos de articulação, graus de separação até o nó `0` e detecção de 3 comunidades.
 * **`tinyEWG.txt`**: Grafo ponderado não direcionado clássico (*Tiny Edge-Weighted Graph*, 8 vértices e 16 arestas com pesos decimais entre `0.16` e `0.93`) da biblioteca de Sedgewick, utilizado para validar o peso total da MST (`1.81`) nos algoritmos de Kruskal e Prim.
 
 ---
