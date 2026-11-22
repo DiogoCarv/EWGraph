@@ -1,6 +1,7 @@
 #include "EWGraph.h"
-#include <bits/stdc++.h>
+#include <queue>
 #include <limits>
+#include <map>
 
 using namespace std;
 
@@ -231,6 +232,175 @@ public:
         vector<Edge> getMST() const { return mst; }
         double getTotalWeight() const { return totalWeight; } 
     };
+
+    // =========================================================================
+    // 4. PONTOS DE ARTICULAÇÃO (Algoritmo de Tarjan via DFS)
+    // =========================================================================
+    // Identifica vértices de corte cuja remoção aumenta o número de componentes
+    // conexas do grafo, fragmentando a rede em subgrupos isolados.
+    // Complexidade: O(V + E)
+    class ArticulationPoints
+    {
+    private:
+        const EWGraph &G;       // Referência ao grafo analisado
+        vector<bool> visited;   // Marca os vértices já visitados na DFS
+        vector<int> tin;        // Tempo de descoberta de cada vértice
+        vector<int> low;        // Menor tempo de descoberta alcançável na subárvore
+        vector<bool> isArtic;   // Indica se o vértice é um ponto de articulação
+        int timer;              // Contador incremental de tempo da busca
+
+        // Explora o grafo em profundidade atualizando os tempos de descoberta e retorno
+        void dfs(int v, int parent = -1)
+        {
+            visited[v] = true;
+            tin[v] = low[v] = timer++;
+            int children = 0; // Quantidade de filhos diretos na árvore DFS
+
+            for (const Edge &e : G.getAdj(v))
+            {
+                int w = e.other(v);
+                if (w == parent) continue; // Ignora a aresta bidirecional de retorno ao pai
+
+                if (visited[w])
+                {
+                    // Aresta de retorno (back-edge): atualiza o menor ancestral alcançável
+                    low[v] = min(low[v], tin[w]);
+                }
+                else
+                {
+                    children++;
+                    dfs(w, v);
+                    low[v] = min(low[v], low[w]);
+
+                    // Vértice interno sem caminho alternativo acima dele na árvore DFS
+                    if (parent != -1 && low[w] >= tin[v])
+                    {
+                        isArtic[v] = true;
+                    }
+                }
+            }
+
+            // Raiz da árvore DFS com dois ou mais ramos independentes
+            if (parent == -1 && children > 1)
+            {
+                isArtic[v] = true;
+            }
+        }
+
+    public:
+        ArticulationPoints(const EWGraph &G) : G(G), timer(0)
+        {
+            int V = G.getV();
+            visited.assign(V, false);
+            tin.assign(V, -1);
+            low.assign(V, -1);
+            isArtic.assign(V, false);
+
+            // Executa a busca para todas as componentes conexas
+            for (int v = 0; v < V; v++)
+            {
+                if (!visited[v])
+                {
+                    dfs(v);
+                }
+            }
+        }
+
+        vector<int> getArticulationPoints() const
+        {
+            vector<int> points;
+            for (int v = 0; v < G.getV(); v++)
+            {
+                if (isArtic[v])
+                {
+                    points.push_back(v);
+                }
+            }
+            return points;
+        }
+    };
+
+    // =========================================================================
+    // 5. CAMINHO MÍNIMO EM NÚMERO DE ARESTAS (BFS / Graus de Separação)
+    // =========================================================================
+    // Calcula a menor sequência de saltos (arestas) entre um vértice de origem
+    // e os demais vértices do grafo utilizando Busca em Largura (BFS).
+    // Complexidade: O(V + E)
+    class ShortestChainBFS
+    {
+    private:
+        const EWGraph &G;       // Referência ao grafo analisado
+        int source;             // Vértice de partida
+        vector<bool> marked;    // Marca os vértices alcançados a partir da origem
+        vector<int> edgeTo;     // Armazena o predecessor de cada vértice no caminho
+        vector<int> distTo;     // Armazena a quantidade mínima de arestas desde a origem
+
+        // Executa a busca em largura por camadas a partir de 's'
+        void bfs(int s)
+        {
+            queue<int> q;
+            marked[s] = true;
+            distTo[s] = 0;
+            q.push(s);
+
+            while (!q.empty())
+            {
+                int v = q.front();
+                q.pop();
+
+                for (const Edge &e : G.getAdj(v))
+                {
+                    int w = e.other(v);
+                    if (!marked[w])
+                    {
+                        edgeTo[w] = v;
+                        distTo[w] = distTo[v] + 1;
+                        marked[w] = true;
+                        q.push(w);
+                    }
+                }
+            }
+        }
+
+    public:
+        ShortestChainBFS(const EWGraph &G, int s) : G(G), source(s)
+        {
+            int V = G.getV();
+            marked.assign(V, false);
+            edgeTo.assign(V, -1);
+            distTo.assign(V, numeric_limits<int>::max());
+
+            if (s >= 0 && s < V)
+            {
+                bfs(s);
+            }
+        }
+
+        bool hasPathTo(int v) const
+        {
+            return (v >= 0 && v < G.getV()) && marked[v];
+        }
+
+        int distanceTo(int v) const
+        {
+            return hasPathTo(v) ? distTo[v] : -1;
+        }
+
+        // Reconstrói a sequência ordenada de vértices da origem até 'v'
+        vector<int> pathTo(int v) const
+        {
+            vector<int> path;
+            if (!hasPathTo(v)) return path;
+
+            for (int x = v; x != source; x = edgeTo[x])
+            {
+                path.push_back(x);
+            }
+            path.push_back(source);
+            reverse(path.begin(), path.end());
+            return path;
+        }
+    };
 };
 
 // =========================================================================
@@ -241,7 +411,7 @@ int main(int argc, char *argv[])
     // Validação dos argumentos passados via linha de comando
     if (argc < 2)
     {
-        cerr << "Uso: " << argv[0] << " <arquivo_do_grafo> [num_clusters]" << endl;
+        cerr << "Uso: " << argv[0] << " <arquivo_do_grafo> [num_clusters] [no_origem]" << endl;
         return 1;
     }
 
@@ -307,6 +477,55 @@ int main(int argc, char *argv[])
             cout << v << " ";
         }
         cout << "}" << endl;
+    }
+
+    // -------------------------------------------------------------------------
+    // EXECUÇÃO DOS PONTOS DE ARTICULAÇÃO
+    // -------------------------------------------------------------------------
+    Process::ArticulationPoints ap(G);
+    vector<int> articulationPoints = ap.getArticulationPoints();
+    cout << endl << "------- Pontos de Articulação -------" << endl;
+    if (articulationPoints.empty())
+    {
+        cout << "Rede Totalmente Robusta" << endl;
+    }
+    else
+    {
+        cout << "Pontos de articulação encontrados: ";
+        for (size_t i = 0; i < articulationPoints.size(); i++)
+        {
+            cout << articulationPoints[i] << (i + 1 < articulationPoints.size() ? ", " : "");
+        }
+        cout << endl;
+    }
+
+    // -------------------------------------------------------------------------
+    // EXECUÇÃO DO CAMINHO MÍNIMO EM VÍNCULOS (BFS) ATÉ O NÓ 0
+    // -------------------------------------------------------------------------
+    // Utiliza o último vértice como origem padrão ou o valor passado no terceiro argumento
+    int destino = 0;
+    int origem = (argc >= 4) ? atoi(argv[3]) : (G.getV() - 1);
+    if (origem < 0 || origem >= G.getV())
+    {
+        origem = G.getV() - 1;
+    }
+
+    Process::ShortestChainBFS bfs(G, origem);
+    cout << endl << "------- Caminho Mínimo (BFS) de " << origem << " para " << destino << " -------" << endl;
+    if (bfs.hasPathTo(destino))
+    {
+        vector<int> path = bfs.pathTo(destino);
+        cout << "Sequência de vértices: ";
+        for (size_t i = 0; i < path.size(); i++)
+        {
+            cout << path[i] << (i + 1 < path.size() ? " -> " : "");
+        }
+        cout << endl;
+        cout << "Total de vínculos percorridos: " << bfs.distanceTo(destino) << endl;
+    }
+    else
+    {
+        cout << "Não há caminho entre " << origem << " e " << destino << "." << endl;
     }
 
     return 0;
